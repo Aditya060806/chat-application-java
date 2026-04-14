@@ -1,4 +1,6 @@
 # Chat Application (Java Broadcast Chat)
+<img width="1116" height="930" alt="image" src="https://github.com/user-attachments/assets/9f9c8a21-b695-4e60-be8d-32af9f8b93c8" />
+
 
 Simple Java socket chat with:
 
@@ -106,6 +108,9 @@ cd client_side
 java -cp bin chat_app.Client Ranbir something.run.pinggy-free.link 39345
 java -cp bin chat_app.Client Suman  something.run.pinggy-free.link 39345
 ```
+## A screenshot of server:
+<img width="697" height="211" alt="image" src="https://github.com/user-attachments/assets/9cc0eca4-8840-4777-899d-6f5c7e79241f" />
+
 
 ## Quit Behavior
 
