@@ -7,6 +7,7 @@ import java.util.Hashtable;
 	public class Server {
 		private ServerSocket ss;
 		private Hashtable<Socket, DataOutputStream> outputStreams = new Hashtable<Socket, DataOutputStream>();
+		private Hashtable<Socket, String> usernames = new Hashtable<Socket, String>();
 		public Server(int port) throws IOException{
 		        ss = new ServerSocket(port); // listens on all interfaces by default
 		        printConnectionHints(port);
@@ -35,10 +36,51 @@ import java.util.Hashtable;
 					}
 				}
 			}
+		void sendToOne( Socket s, String message ) {
+			synchronized( outputStreams ) {
+				DataOutputStream dout = outputStreams.get( s );
+				if (dout == null) {
+					return;
+				}
+				try {
+					dout.writeUTF( message );
+				} catch (IOException ie) {
+					System.out.println( ie );
+				}
+			}
+		}
+		void registerUsername( Socket s, String username ) {
+			synchronized( outputStreams ) {
+				if (username == null) {
+					return;
+				}
+				String cleaned = username.trim();
+				if (cleaned.isEmpty()) {
+					return;
+				}
+				usernames.put( s, cleaned );
+			}
+		}
+		String getOnlineUsersCsv() {
+			synchronized( outputStreams ) {
+				StringBuilder sb = new StringBuilder();
+				for (String username : usernames.values()) {
+					if (username == null || username.trim().isEmpty()) {
+						continue;
+					}
+					if (sb.length() > 0) {
+						sb.append(",");
+					}
+					sb.append(username.trim());
+				}
+				return sb.toString();
+			}
+		}
 		void removeConnection( Socket s) {
 			synchronized( outputStreams ) {
 				System.out.println( "Removing connection to "+s );
 				outputStreams.remove( s );
+				usernames.remove( s );
 				try { 
 					s.close(); 
 					} catch( IOException ie ) {
@@ -88,6 +130,9 @@ import java.util.Hashtable;
 	        start();
 		}
 	   public void run() {
+		String senderName = null;
+		boolean joinAnnounced = false;
+		boolean leftAnnounced = false;
 		try { 
 			DataInputStream din = new DataInputStream(socket.getInputStream() ); 
 			while (true) {	
@@ -98,19 +143,38 @@ import java.util.Hashtable;
 				}
 		    	String sender = parts[0];
 		    	String content = parts[1];
+		    	if (senderName == null) {
+		    		senderName = sender;
+		    	}
+
+		    	if (!joinAnnounced) {
+		    		String usersAlreadyOnline = server.getOnlineUsersCsv();
+		    		server.registerUsername(socket, sender);
+		    		server.sendToOne(socket, "Server __online__ " + usersAlreadyOnline);
+		    		server.sendToAll("Server " + sender + " joined the chat.");
+		    		joinAnnounced = true;
+		    	}
+
+		    	if (content.equals("__join__")) {
+		    		continue;
+		    	}
+
 		    	if(!content.equals("quit")) {
 		    		System.out.println( "Broadcasting from " + sender + ": " + content );
 		    		server.sendToAll(message );
 		    	}
 		    	else {
-		    		server.sendToAll("quited" );
-		    		server.removeConnection( socket );
+		    		server.sendToAll("Server " + sender + " left the chat.");
+		    		leftAnnounced = true;
 		    		break;
 		    	}
 				}
 			} catch( IOException ie ) {
-				System.out.println("close connection");
+				System.out.println("Connection dropped without quit message.");
 			} finally {
+				if (joinAnnounced && !leftAnnounced && senderName != null) {
+					server.sendToAll("Server " + senderName + " left the chat.");
+				}
 				server.removeConnection( socket );
 		}
 		}

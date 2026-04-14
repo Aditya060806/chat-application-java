@@ -1,68 +1,27 @@
-# Chat Application (Group Chat, Java Sockets)
+# Chat Application (Java Broadcast Chat)
 
-This is a console-based group chat application built with Java sockets.
+Simple Java socket chat with:
 
-It has two modules:
-
-- `server_side`: runs the chat server
-- `client_side`: runs chat clients
-
-All messages are broadcast to all connected clients.
-
-## What Is Happening
-
-1. Server starts and listens on a TCP port (default `5055`).
-2. Server prints local IPv4 addresses so you know what IP clients should use.
-3. Multiple clients connect to the same server IP and port.
-4. Any message from a client is broadcast to everyone.
-5. If a client sends `quit`, server sends `quited` and all connected clients exit.
-
-## How It Is Happening
-
-### Server behavior
-
-- Uses `ServerSocket` to accept incoming connections.
-- Stores each connection output stream in a hashtable.
-- Starts one `ServerThread` per connected client.
-- Each thread reads incoming UTF messages in format:
-  - `sender content...`
-- Broadcasts each normal message to all clients.
-
-### Client behavior
-
-- Connects to server host and port.
-- Starts one background receive thread.
-- Main thread reads terminal input and sends:
-  - `name content...`
-- Prints all received messages as:
-  - `sender:content`
-
-## Message Protocol
-
-- Normal message:
-  - `sender content...`
-  - Example: `Bob hello everyone`
-- Exit message from client:
-  - `sender quit`
-- Server shutdown notification to all clients:
-  - `quited`
+1. One server
+2. Multiple GUI clients
+3. Broadcast messaging (everyone sees everyone)
 
 ## Project Structure
 
-```
+```text
 chat-application-master/
-  client_side/
-    src/chat_app/Client.java
-    bin/
   server_side/
     src/chat_app/Server.java
+    bin/
+  client_side/
+    src/chat_app/Client.java
     bin/
 ```
 
 ## Requirements
 
-- Java JDK 8 or newer
-- Terminal/console access
+1. Java JDK 8+
+2. Terminal on Windows/macOS/Linux
 
 Check Java:
 
@@ -70,6 +29,17 @@ Check Java:
 javac -version
 java -version
 ```
+
+## How It Works
+
+1. Server listens on a port (default 5055).
+2. Each client connects with name + host + port.
+3. Every normal message is broadcast to all connected users.
+4. Server sends status messages as sender Server:
+   1. user joined
+   2. user left
+   3. online users for newly joined client
+5. In the client UI, your own name in server status messages is shown as you.
 
 ## Build
 
@@ -83,92 +53,74 @@ cd ../client_side
 javac -d bin src/chat_app/Client.java
 ```
 
-## Run
+## Run (LAN)
 
-### 1. Start server
+### 1) Start Server
 
 ```bash
 cd server_side
-java -cp bin chat_app.Server
-```
-
-Or custom port:
-
-```bash
 java -cp bin chat_app.Server 5055
 ```
 
-Server startup now prints connect hints, for example:
+Server prints local IP hints. Use one of those IPs from other devices.
 
-```text
-Server started.
-Clients can connect using one of these local IPv4 addresses:
-- 192.168.1.20:5055
-Listening on port 5055
+### 2) Start Clients
+
+```bash
+cd client_side
+java -cp bin chat_app.Client <name> <server_host> <server_port>
 ```
 
-### 2. Start clients
+Example:
 
-Client command format:
-
-```text
-java -cp bin chat_app.Client <name> [server_host] [server_port]
+```bash
+java -cp bin chat_app.Client Ranbir 192.168.1.20 5055
+java -cp bin chat_app.Client Suman 192.168.1.20 5055
 ```
 
-The exact style you asked for:
+## Run (Public Internet via Pinggy)
 
-```text
-java -cp bin chat_app.Client Bob 192.168.1.20 5055
+### 1) Start server normally
+
+```bash
+cd server_side
+java -cp bin chat_app.Server 5055
 ```
 
-More examples:
+### 2) In another terminal, start tunnel
 
-```text
-java -cp bin chat_app.Client Alice
-java -cp bin chat_app.Client Alice 192.168.1.20
-java -cp bin chat_app.Client Alice 192.168.1.20 5055
+```bash
+ssh -o StrictHostKeyChecking=accept-new -p 443 -R0:localhost:5055 tcp@a.pinggy.io
 ```
 
-## LAN and Internet Usage
+You will get a TCP address like:
 
-### LAN (same network)
+```text
+tcp://something.run.pinggy-free.link:39345
+```
 
-1. Run server on machine A.
-2. Note the IP shown by server (example `192.168.1.20`).
-3. Run clients on any machine in same LAN using that IP.
+### 3) Start clients with tunnel host and port
 
-### Internet (different networks)
+```bash
+cd client_side
+java -cp bin chat_app.Client Ranbir something.run.pinggy-free.link 39345
+java -cp bin chat_app.Client Suman  something.run.pinggy-free.link 39345
+```
 
-1. Run server on a machine with stable internet access.
-2. Open firewall for TCP port `5055` (or your chosen port).
-3. Configure router port forwarding to server machine.
-4. Remote clients connect to your public IP.
+## Quit Behavior
 
-## Known Limitations
+1. If a user sends quit, only that user leaves.
+2. Server keeps running.
+3. Others get a server message that the user left.
 
-- No authentication.
-- No encryption (plaintext traffic).
-- If one user sends `quit`, all users are forced to exit.
-- No user list or join/leave notifications.
+## Common Issues
 
-## Troubleshooting
+### Address already in use
 
-### `ClassNotFoundException`
+Port already in use. Stop existing process or run on another port.
 
-- Re-compile first.
-- Ensure classpath points to `bin`.
+### Could not connect
 
-### `Address already in use: bind`
-
-- Another process is already using the port.
-- Stop it or choose another port.
-
-### Cannot connect from another machine
-
-- Verify server IP and port.
-- Check firewall rules.
-- Check router port forwarding for internet access.
-
-## License
-
-No license file is currently included.
+1. Check host and port.
+2. Ensure server is running.
+3. If using Pinggy, ensure tunnel is running and not expired.
